@@ -11,58 +11,57 @@ using Flux.Losses
 
 
 function oneHotEncoding(feature::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1})
-    if length(classes)<=2
-        feature = reshape(feature.==classes[1], :, 1);
-    else
-        oneHot = convert(BitArray{2}, hcat([instance.==classes for instance in feature]...)');
-        feature = oneHot;
-    end;
-    return feature;
+    #
+    # Codigo a desarrollar
+    #
 end;
 
-oneHotEncoding(feature::AbstractArray{<:Any,1}) = (classes = unique(feature); oneHotEncoding(feature, classes))
-
+function oneHotEncoding(feature::AbstractArray{<:Any,1})
+    #
+    # Codigo a desarrollar
+    #
+end;
 
 function oneHotEncoding(feature::AbstractArray{Bool,1})
-    reshape(feature, :, 1);
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    mins = minimum(dataset, dims=1);
-    maxs = maximum(dataset, dims=1);
-
-    return reshape([mins; maxs], 1, :);
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function calculateZeroMeanNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    mean = mean(dataset, dims = 1);
-    std = stds(dataset, dim = 1);
-
-    return reshape([mean;std], 1, :);
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    minValues = normalizationParameters[1];
-    maxValues = normalizationParameters[2];
-    dataset.-= minValues;
-    dataset./= (maxValues .- minValues);
-    dataset[:, vec(minValues.==maxValues)] .= 0;
-    return dataset
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2})
-    normalizationParameters = calculateMinMaxNormalizationParameters(dataset)
-    return normalizeMinMax!(dataset, normalizationParameters)
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    datasetCopy = copy(dataset);
-    return normalizeMinMax!(datasetCopy, normalizationParameters);
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2})
-    datasetCopy = copy(dataset);
-    return normalizeMinMax!(datasetCopy);
+    #
+    # Codigo a desarrollar
+    #
 end;
 
 function normalizeZeroMean!(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
@@ -314,71 +313,5 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
     # Codigo a desarrollar
     #
 end;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
