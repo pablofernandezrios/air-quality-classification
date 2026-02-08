@@ -98,13 +98,14 @@ function normalizeZeroMean(dataset::AbstractArray{<:Real,2})
     return normalizeZeroMean!(datasetcopy)
 end;
 
-function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
-    return outputs .>= threshold
-end;
+classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5) = outputs .>= threshold
 
 function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
     if size(outputs, 2) == 1
         return reshape(classifyOutputs(vec(outputs); threshold = threshold), :, 1)
+    
+    # Si hay 2 columnas, se ha representado un problema de clasificación binaria 
+    # erróneamente, pero el else funcionará bien, salvo que ahora busca el máximo en vez de el mayor de 0.5
     else 
         (_,indicesMaxEachInstance) = findmax(outputs, dims=2); 
         result = falses(size(outputs));
@@ -114,28 +115,31 @@ function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
 
 end;
 
-function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
+accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1}) = mean(outputs .== targets)
 
 function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
-    #
-    # Codigo a desarrollar
-    #
+    @assert size(outputs) == size(targets) "Error: Las matrices de entrada tienen dimensiones distintas"
+    if size(outputs, 2) == 1
+        return accuracy(outputs[:, 1], targets[:, 1])
+    # Si hay 2 columnas, la clasificación binaria se ha representado de manera redundante, pero
+    # el else funcionará igual de bien para calcular la precisión.
+    else
+        return mean(eachrow(outputs) .== eachrow(targets))
+    end
 end;
 
 function accuracy(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
+    classified = classifyOutputs(outputs; threshold = threshold)
+    return accuracy(classified, targets)
 end;
 
 function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
+    if size(outputs, 2) == 1
+        return accuracy(outputs[:, 1], targets[:, 1]; threshold = threshold)
+    else
+        classified = classifyOutputs(outputs; threshold = threshold)
+        return accuracy(classified, targets)
+    end
 end;
 
 function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutputs::Int; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)))
