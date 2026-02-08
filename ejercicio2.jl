@@ -22,10 +22,7 @@ end;
 
 oneHotEncoding(feature::AbstractArray{<:Any,1}) = (classes = unique(feature); oneHotEncoding(feature, classes))
 
-
-function oneHotEncoding(feature::AbstractArray{Bool,1})
-    reshape(feature, :, 1);
-end;
+oneHotEncoding(feature::AbstractArray{Bool,1}) = reshape(feature, :, 1)
 
 function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2})
     mins = minimum(dataset, dims=1);
@@ -35,11 +32,12 @@ function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2}
 end;
 
 function calculateZeroMeanNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    mean = mean(dataset, dims = 1);
-    std = stds(dataset, dim = 1);
+    mean_zero = mean(dataset, dims = 1);
+    std_one = std(dataset, dims = 1);
 
-    return reshape([mean;std], 1, :);
+    return reshape([mean_zero;std_one], 1, :);
 end;
+
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
     minValues = normalizationParameters[1];
