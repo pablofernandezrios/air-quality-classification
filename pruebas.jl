@@ -1,7 +1,7 @@
 # Archivo de pruebas para realizar autoevaluación de algunas funciones de los ejercicios
-
+using Revise # Se puede eliminar después, es para ir actualizando el REPL mientras se prueba
 # Importamos el archivo con las soluciones a los ejercicios
-include("ejercicio2.jl");
+includet("ejercicio2.jl");
 #   Cambiar "soluciones.jl" por el nombre del archivo que contenga las funciones desarrolladas
 
 
@@ -14,6 +14,7 @@ println(Random.VERSION)
 #  y la versión 0.16.7 de Flux
 using Flux
 println(Flux.VERSION)
+
 
 # Es posible que con otras versiones los resultados sean distintos, estando las funciones bien, sobre todo en la funciones que implican alguna componente aleatoria
 

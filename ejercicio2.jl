@@ -8,6 +8,7 @@
 using Statistics
 using Flux
 using Flux.Losses
+using Revise # Se puede eliminar después, es para ir actualizando el REPL mientras se prueba
 
 
 function oneHotEncoding(feature::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1})
@@ -98,15 +99,19 @@ function normalizeZeroMean(dataset::AbstractArray{<:Real,2})
 end;
 
 function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
+    return outputs .>= threshold
 end;
 
 function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
+    if size(outputs, 2) == 1
+        return reshape(classifyOutputs(vec(outputs); threshold = threshold), :, 1)
+    else 
+        (_,indicesMaxEachInstance) = findmax(outputs, dims=2); 
+        result = falses(size(outputs));
+        result[indicesMaxEachInstance] .= true
+        return result
+    end 
+
 end;
 
 function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
