@@ -143,9 +143,22 @@ function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,
 end;
 
 function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutputs::Int; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)))
-    #
-    # Codigo a desarrollar
-    #
+    ann = Chain()
+    numInputsLayer = numInputs  
+
+    # Indexamos con enumerate para no crear una variable i a mayores
+    for (i, numOutputsLayer) in enumerate(topology)
+        ann = Chain(ann..., Dense(numInputsLayer, numOutputsLayer, transferFunctions[i])); 
+        numInputsLayer = numOutputsLayer; 
+    end; 
+
+    if numOutputs == 1
+        ann = Chain(ann..., Dense(numInputsLayer, 1, σ))
+    else 
+        ann = Chain(ann..., Dense(numInputsLayer, numOutputs, identity))
+        ann = Chain(ann..., softmax)
+    end
+    return ann
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
