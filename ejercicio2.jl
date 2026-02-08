@@ -11,49 +11,53 @@ using Flux.Losses
 
 
 function oneHotEncoding(feature::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1})
-    if length(classes)<=2
-        feature = reshape(feature.==classes[1], :, 1);
-    else
-        oneHot = convert(BitArray{2}, hcat([instance.==classes for instance in feature]...)');
-        feature = oneHot;
-    end;
-    return feature;
+    if length(classes)<=2 
+        encodedfeatures = reshape(feature.==classes[1], :, 1);
+
+    else  
+        # Si hay más de 2 clases, se inicializa un vector de booleanos y se
+        # itera sobre las categorías codificando según la clase que corresponda
+        encodedfeatures = BitArray{2}(undef, length(feature), length(classes))
+        for i in 1:length(classes)
+            encodedfeatures[:, i] = feature .== classes[i]
+        end
+    end
+
+    return encodedfeatures;
 end;
 
 oneHotEncoding(feature::AbstractArray{<:Any,1}) = (classes = unique(feature); oneHotEncoding(feature, classes))
 
-
-function oneHotEncoding(feature::AbstractArray{Bool,1})
-    reshape(feature, :, 1);
-end;
+oneHotEncoding(feature::AbstractArray{Bool,1}) = reshape(feature, :, 1)
 
 function calculateMinMaxNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    mins = minimum(dataset, dims=1);
-    maxs = maximum(dataset, dims=1);
+    minvector = minimum(dataset, dims=1);
+    maxvector = maximum(dataset, dims=1);
 
-    return reshape([mins; maxs], 1, :);
+    return (minvector, maxvector)
 end;
 
 function calculateZeroMeanNormalizationParameters(dataset::AbstractArray{<:Real,2})
-    mean = mean(dataset, dims = 1);
-    std = stds(dataset, dim = 1);
+    mean_vector = mean(dataset, dims = 1);
+    std_vector = std(dataset, dims = 1);
 
-    return reshape([mean;std], 1, :);
+    return (mean_vector, std_vector)
 end;
+
 
 function normalizeMinMax!(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
     minValues = normalizationParameters[1];
     maxValues = normalizationParameters[2];
     dataset.-= minValues;
     dataset./= (maxValues .- minValues);
-    dataset[:, vec(minValues.==maxValues)] .= 0;
+    dataset[:, vec(minValues .== maxValues)] .= 0;
     return dataset
 end;
 
-function normalizeMinMax!(dataset::AbstractArray{<:Real,2})
-    normalizationParameters = calculateMinMaxNormalizationParameters(dataset)
-    return normalizeMinMax!(dataset, normalizationParameters)
-end;
+normalizeMinMax!(dataset::AbstractArray{<:Real,2}) =
+    (normalizationParameters = calculateMinMaxNormalizationParameters(dataset);
+    normalizeMinMax!(dataset, normalizationParameters))
+
 
 function normalizeMinMax(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
     datasetCopy = copy(dataset);
@@ -66,27 +70,31 @@ function normalizeMinMax(dataset::AbstractArray{<:Real,2})
 end;
 
 function normalizeZeroMean!(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    #
-    # Codigo a desarrollar
-    #
+    meanvector, stdvector = normalizationParameters
+
+    dataset .-= meanvector
+    dataset ./= stdvector
+    # Si la desviación estándar es 0, dividir por 0 dará error, lo corregimos
+    dataset[:, vec(stdvector .== 0)] .= 0
+
+    return dataset
 end;
 
 function normalizeZeroMean!(dataset::AbstractArray{<:Real,2})
-    #
-    # Codigo a desarrollar
-    #
+    normalizationparameters = calculateZeroMeanNormalizationParameters(dataset)
+    normalizeZeroMean!(dataset, normalizationparameters)
+
+    return dataset
 end;
 
 function normalizeZeroMean(dataset::AbstractArray{<:Real,2}, normalizationParameters::NTuple{2, AbstractArray{<:Real,2}})
-    #
-    # Codigo a desarrollar
-    #
+    datasetcopy = copy(dataset)
+    return normalizeZeroMean!(datasetcopy, normalizationParameters)
 end;
 
 function normalizeZeroMean(dataset::AbstractArray{<:Real,2})
-    #
-    # Codigo a desarrollar
-    #
+    datasetcopy = copy(dataset)
+    return normalizeZeroMean!(datasetcopy)
 end;
 
 function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
