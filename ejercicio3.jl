@@ -8,10 +8,12 @@
 using Random
 
 function holdOut(N::Int, P::Real)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    idx = randperm(N)              # permutación aleatoria 1..N
+    A = round(Int, N*P)            # tamaño del test
+    Test  = idx[1:A]               # primeros A aleatorios
+    Train = idx[A+1:end]           # resto
+    return Train, Test
+end
 
 function holdOut(N::Int, Pval::Real, Ptest::Real)
     #
