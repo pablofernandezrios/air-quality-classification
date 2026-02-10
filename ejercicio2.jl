@@ -162,9 +162,44 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
+
+    # accedemos a las matrices
+    inputs = dataset[1]
+    targets = dataset[2]
+
+    # pasamos a float32 y trasponemos
+    X = Float32.(inputs)'   
+    Y = Float32.(targets)'  
+
+    # obtenemos el número de entradas y de salidas
+    numInputs = size(X, 1)
+    numOutputs = size(Y, 1)
+
+    # creamos la rna
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions = transferFunctions)
+
+    # definimos loss y optimizador
+    loss(ann, x, y) = Losses.crossentropy(ann(x), y) 
+    opt_state = Flux.setup(Descent(learningRate), ann) 
+
+    # creamos el vector de loss
+    losses = Float32[]
+
+    # calculamos el loss del ciclo 0 y lo metemos en el vector
+    push!(losses, loss(ann, X, Y))
+
+    # bucle de entrenamiento
+    epochs = 0
+
+    while epochs < maxEpochs && losses[end] > minLoss # losses[end] accede al último elemento del vector de pérdidas
+
+        Flux.train!(loss, ann, [(X, Y)], opt_state)
+        push!(losses, loss(ann, X, Y))
+        epochs += 1
+
+    end;
+
+    return (ann, losses)
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
