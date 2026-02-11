@@ -176,7 +176,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     numOutputs = size(Y, 1)
 
     # creamos la rna
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions = transferFunctions)
+    ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions = transferFunctions)
 
     # definimos loss y optimizador
     loss(ann, x, y) = Losses.crossentropy(ann(x), y) 
@@ -203,7 +203,6 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
+    targets_matrix = reshape(targets, 1, :)
+    return trainClassANN(topology,(inputs, targets_matrix); transferFunctions = transferFunctions, maxEpochs = maxEpochs, minLoss = minLoss, learningRate = learningRate)
 end;
