@@ -102,7 +102,7 @@ classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5) = outputs
 
 function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
     if size(outputs, 2) == 1
-        return reshape(classifyOutputs(vec(outputs); threshold = threshold), :, 1)
+        return reshape(classifyOutputs(vec(outputs); threshold), :, 1)
     
     # Si hay 2 columnas, se ha representado un problema de clasificación binaria 
     # erróneamente, pero el else funcionará bien, salvo que ahora busca el máximo en vez de el mayor de 0.5
@@ -161,14 +161,35 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
     return ann
 end;
 
+
+
 function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
+    loss(model, x, y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);
+
+    features = convert(Array{Float32, 2}, dataset[1])' # Trasponemos antes de nada
+    labels = convert(Array{Float32, 2}, dataset[2])'
+    @assert (size(features, 2)==size(labels, 2)) "Las matrices de entradas y salidas deseadas no tienen el mismo numero de patrones"
+    numInputs = size(features, 1) # Ahora están en las filas
+    numOutputs = size(labels, 1)
+
+    ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions)
+    opt_state = Flux.setup(Adam(learningRate), ann)
+    currentloss = convert(Float32, loss(ann, features, labels))
+    losses = Float32[(currentloss)] # Si nunca se llamase a flux.train el vector de pérdidas tendría un elemento
+
+    for epoch in 1:maxEpochs
+        if currentloss <= minLoss  
+            break
+        end 
+        Flux.train!(loss, ann, [(features, labels)], opt_state)
+        currentloss = convert(Float32, loss(ann, features, labels))
+        push!(losses, currentloss)
+    end 
+
+    return (ann, losses)
+
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
+    return trainClassANN(topology, (inputs, reshape(targets, (:, 1))); transferFunctions, maxEpochs, minLoss, learningRate)
 end;
