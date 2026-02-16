@@ -8,15 +8,18 @@
 using Random
 
 function holdOut(N::Int, P::Real)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    idx = randperm(N)              # permutación aleatoria 1..N
+    A = round(Int, N*P)            # tamaño del test
+    Test  = idx[1:A]               # primeros A aleatorios
+    Train = idx[A+1:end]  
+    return Train, Test
+end
 
-function holdOut(N::Int, Pval::Real, Ptest::Real)
-    #
-    # Codigo a desarrollar
-    #
+function holdOut(N::Int, Pval::Real, Ptest::Real)     # tamaño del test
+     Train, Test = holdOut(N, Ptest)
+    p_valrel= Pval*N/length(Train)   # tamaño relativo del val respecto al train
+    Trainfin, Val = holdOut(length(Train), p_valrel)
+    return Trainfin, Val, Test
 end;
 
 function trainClassANN(topology::AbstractArray{<:Int,1},
