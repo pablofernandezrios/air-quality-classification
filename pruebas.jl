@@ -1,7 +1,7 @@
 # Archivo de pruebas para realizar autoevaluación de algunas funciones de los ejercicios
 using Revise # Se puede eliminar después, es para ir actualizando el REPL mientras se prueba
 # Importamos el archivo con las soluciones a los ejercicios
-includet("ejercicio2.jl");
+includet("firmas.jl")
 #   Cambiar "soluciones.jl" por el nombre del archivo que contenga las funciones desarrolladas
 
 
@@ -89,6 +89,8 @@ seed!(1); @assert(isapprox(rand(), 0.07336635446929285))
 
 
 # Unas comprobaciones sencillas de la función holdOut:
+println(holdOut(10, 0.3, 0.2))
+
 @assert(all(length.(holdOut(10, 0.3))      .== [7,3]  ))
 @assert(all(length.(holdOut(10, 0.3, 0.2)) .== [5,3,2]))
 
