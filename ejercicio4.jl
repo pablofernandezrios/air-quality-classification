@@ -18,6 +18,13 @@ function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArra
     #
 end;
 
+#Funciones para imprimir resultados
+function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+
+    
+function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
+
+
 function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
     #
     # Codigo a desarrollar
