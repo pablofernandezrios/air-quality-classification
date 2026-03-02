@@ -12,16 +12,14 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     FP = sum(outputs .& .!targets)
     FN = sum(.!outputs .& targets)
 
-    Matriz_confusion = [TP FN; FP TN]
+    Matriz_confusion = [TN FP; FN TP]  # ← orden corregido
 
-    accuracy = (TP + TN) / length(outputs)
-    tasa_fallo = 1 - accuracy
-
-    sensibilidad             = (TP + FN) == 0 ? 1.0 : TP / (TP + FN)
-    especifidad              = (TN + FP) == 0 ? 1.0 : TN / (TN + FP)
+    accuracy    = (TP + TN) / length(outputs)
+    tasa_fallo  = 1 - accuracy
+    sensibilidad              = (TP + FN) == 0 ? 1.0 : TP / (TP + FN)
+    especifidad               = (TN + FP) == 0 ? 1.0 : TN / (TN + FP)
     valor_predictivo_positivo = (TP + FP) == 0 ? 1.0 : TP / (TP + FP)
     valor_predictivo_negativo = (TN + FN) == 0 ? 1.0 : TN / (TN + FN)
-
     F1_score = (valor_predictivo_positivo + sensibilidad) == 0 ? 0.0 :
         2 * (valor_predictivo_positivo * sensibilidad) / (valor_predictivo_positivo + sensibilidad)
 
@@ -90,11 +88,6 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
            valor_predictivo_positivo, valor_predictivo_negativo, F1_score, Matriz_confusion
 end;
 
-# 3. Real 2D outputs → Bool via threshold, then call Bool 2D version
-function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)
-    confusionMatrix(outputs .>= threshold, targets; weighted=weighted)
-end;
-
 # 4. Categorical 1D with explicit classes list
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1},
                          classes::AbstractArray{<:Any,1}; weighted::Bool=true)
@@ -122,9 +115,19 @@ end;
 
 # 5. Categorical 1D without explicit classes: infer from targets
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    classes = unique(targets)
+    classes = sort(unique(targets))  # orden estable
     confusionMatrix(outputs, targets, classes; weighted=weighted)
 end;
+# Fix 1: Real 2D → usar argmax en lugar de threshold elemento a elemento
+function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2};
+                         threshold::Real=0.5, weighted::Bool=true)
+    bool_outputs = falses(size(outputs))
+    for i in 1:size(outputs, 1)
+        bool_outputs[i, argmax(outputs[i,:])] = true
+    end
+    confusionMatrix(bool_outputs, targets; weighted=weighted)
+end;
+
 
 using SymDoME
 using GeneticProgramming
@@ -148,5 +151,3 @@ function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, Abstract
     # Codigo a desarrollar
     #
 end;
-
-
