@@ -48,17 +48,16 @@ function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractA
     metricas = confusionMatrix(outputs, targets)
 
     println("Métricas:")
-    println("Accuracy: $(metricas[1])")
-    println("Error rate: $(metricas[2])")
-    println("Sensitivity: $(metricas[3])")
-    println("Specificity: $(metricas[4])")
-    println("PPV: $(metricas[5])")
-    println("NPV: $(metricas[6])")
-    println("F1-score: $(metricas[7])")
+    println("Accuracy: ", metricas.accuracy)
+    println("Error rate: ", metricas.errorrate)
+    println("Sensitivity: ", metricas.sensitivity)
+    println("Specificity: ", metricas.specificity)
+    println("PPV: ", metricas.ppv)
+    println("NPV: ", metricas.npv)
+    println("F1-score: ", metricas.f1)
 
     println("\nMatriz de confusión:")
-    println(metricas[8])
-
+    println(metricas.confusionmatrix)
 end;
     
     
@@ -67,16 +66,16 @@ function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::Abstrac
     metricas = confusionMatrix(outputs, targets, threshold = threshold)
 
     println("Métricas:")
-    println("Accuracy: $(metricas[1])")
-    println("Error rate: $(metricas[2])")
-    println("Sensitivity: $(metricas[3])")
-    println("Specificity: $(metricas[4])")
-    println("PPV: $(metricas[5])")
-    println("NPV: $(metricas[6])")
-    println("F1-score: $(metricas[7])")
+    println("Accuracy: ", metricas.accuracy)
+    println("Error rate: ", metricas.errorrate)
+    println("Sensitivity: ", metricas.sensitivity)
+    println("Specificity: ", metricas.specificity)
+    println("PPV: ", metricas.ppv)
+    println("NPV: ", metricas.npv)
+    println("F1-score: ", metricas.f1)
 
     println("\nMatriz de confusión:")
-    println(metricas[8])
+    println(metricas.confusionmatrix)
 
 end;
 
@@ -177,6 +176,7 @@ end;
 function printConfusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
     println(confusionMatrix(outputs, targets; weighted=weighted))
 end;
+
 
 using SymDoME
 using GeneticProgramming
