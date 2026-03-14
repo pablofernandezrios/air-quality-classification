@@ -29,8 +29,8 @@ function confusionMatrix(ouVPuts::AbstractArray{Bool,1}, targets::AbstractArray{
     confusionmatrix = [VN FP;
                         FN VP]
 
-    return (accuracy = accuracy, errorrate = errorrate, sensitivity = sensitivity, specificity = specificity, 
-    ppv = ppv, npv = npv, f1 = f1, confusionmatrix = confusionmatrix) # devuelve namedtuple para acceder más facilmente
+    return (accuracy, errorrate, sensitivity, specificity, 
+    ppv, npv, f1, confusionmatrix) # NO devuelve namedtuple para acceder más facilmente
 
 end;
 
@@ -45,37 +45,38 @@ end;
 
 function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1}) 
 
-    metricas = confusionMatrix(outputs, targets)
+    metricas = confusionMatrix(outputs, targets) 
+    
+    println("Métricas:") 
+    println("Accuracy: $(metricas[1])") 
+    println("Error rate: $(metricas[2])") 
+    println("Sensitivity: $(metricas[3])") 
+    println("Specificity: $(metricas[4])") 
+    println("PPV: $(metricas[5])") 
+    println("NPV: $(metricas[6])") 
+    println("F1-score: $(metricas[7])") 
+    
+    println("\nMatriz de confusión:") 
+    println(metricas[8])
 
-    println("Métricas:")
-    println("Accuracy: ", metricas.accuracy)
-    println("Error rate: ", metricas.errorrate)
-    println("Sensitivity: ", metricas.sensitivity)
-    println("Specificity: ", metricas.specificity)
-    println("PPV: ", metricas.ppv)
-    println("NPV: ", metricas.npv)
-    println("F1-score: ", metricas.f1)
-
-    println("\nMatriz de confusión:")
-    println(metricas.confusionmatrix)
 end;
     
     
 function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
 
-    metricas = confusionMatrix(outputs, targets, threshold = threshold)
+    metricas = confusionMatrix(outputs, targets, threshold) 
 
-    println("Métricas:")
-    println("Accuracy: ", metricas.accuracy)
-    println("Error rate: ", metricas.errorrate)
-    println("Sensitivity: ", metricas.sensitivity)
-    println("Specificity: ", metricas.specificity)
-    println("PPV: ", metricas.ppv)
-    println("NPV: ", metricas.npv)
-    println("F1-score: ", metricas.f1)
-
-    println("\nMatriz de confusión:")
-    println(metricas.confusionmatrix)
+    println("Métricas:") 
+    println("Accuracy: $(metricas[1])") 
+    println("Error rate: $(metricas[2])") 
+    println("Sensitivity: $(metricas[3])") 
+    println("Specificity: $(metricas[4])") 
+    println("PPV: $(metricas[5])") 
+    println("NPV: $(metricas[6])") 
+    println("F1-score: $(metricas[7])") 
+    
+    println("\nMatriz de confusión:") 
+    println(metricas[8]) 
 
 end;
 
@@ -99,16 +100,16 @@ function confusionMatrix(ouVPuts::AbstractArray{Bool,2}, targets::AbstractArray{
 
     for c in 1:numclases
         # cogemos todas las filas de la columna c
-        outputscol = outputs[:, c] 
+        outputscol = outputs[:, c]
         targetscol = targets[:, c]
         # calculamos las metricas
         metricas = confusionMatrix(outputscol, targetscol)
         # guardamos los resultados 
-        sensitivity[c] = metricas.sensitivity
-        specificity[c] = metricas.specificity
-        ppv[c] = metricas.ppv
-        npv[c] = metricas.npv
-        f1[c] = metricas.f1
+        sensitivity[c] = metricas[3]
+        specificity[c] = metricas[4]
+        ppv[c] = metricas[5]
+        npv[c] = metricas[6]
+        f1[c] = metricas[7]
     end
 
     confusionmatrix = targets' * ouVPuts # filas * columnas (N x C)' * (N x C)
@@ -135,8 +136,8 @@ function confusionMatrix(ouVPuts::AbstractArray{Bool,2}, targets::AbstractArray{
     accuracy = accuracy(ouVPuts, targets)
     errorrate = 1 - accuracy
 
-    return (accuracy = accuracy, errorrate = errorrate, sensitivity = sensitivity, specificity = specificity, 
-    ppv = ppv, npv = npv, f1 = f1, confusionmatrix = confusionmatrix)
+   return (accuracy, errorrate, sensitivity, specificity, 
+    ppv, npv, f1, confusionmatrix)
 +
 end;
 
