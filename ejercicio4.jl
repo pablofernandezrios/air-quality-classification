@@ -1,39 +1,95 @@
 # Tened en cuenta que en este archivo todas las funciones tienen puesta la palabra reservada 'function' y 'end' al final
 # Según cómo las defináis, podrían tener que llevarlas o no
 
+
 # ----------------------------------------------------------------------------------------------
 # ------------------------------------- Ejercicio 4 --------------------------------------------
 # ----------------------------------------------------------------------------------------------
 
 
-function confusionMatrix(ouVPuts::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+    vp = count(outputs .& targets)
+    vn = count(.!outputs .& .!targets)
+    fp = count(outputs .& .!targets)
+    fn = count(.!outputs .& targets)
+    confusionmatrix = [[vn fp]; [fn vp]]
 
-    @assert length(ouVPuts) == length(targets) "Los vectores ouVPuts y targets deben tener la misma longitud"
+    acc = (vn + vp) / (vn + vp + fn + fp)    
+    errorRate = (fn + fp) / (vn + vp + fn + fp)  # Sería equivalente a (1 - acc)
+    recall = (vp + fn) == 0 ? 1.0 : (vp) / (vp + fn)
+    specificity = (vn + fp) == 0 ? 1.0 : (vn) / (vn + fp)
+    precision = (vp + fp) == 0 ? 1.0 : (vp) / (vp + fp)
+    NPV = (vn + fn) == 0 ? 1.0 : (vn) / (vn + fn)
+    f1 = (recall + precision) == 0 ? 0.0 : 2 * (precision * recall) / (precision + recall)
 
-    # calculamos los valores de la matriz de confusión
-    VP = sum(ouVPuts .& targets)
-    VN = sum(.!ouVPuts .& .!targets)
-    FP = sum(ouVPuts .& .!targets)
-    FN = sum(.!ouVPuts .& targets)
-
-    # calculamos las métricas
-    accuracy = (VN + VP) / (VN + VP + FN + FP)
-    errorrate = (FN + FP) / (VN + VP + FN + FP)
-    sensitivity = (VP + FN) == 0 ? 1.0 : VP / (VP + FN)
-    specificity = (VN + FP) == 0 ? 1.0 : VN / (VN + FP)
-    ppv = (VP + FP) == 0 ? 1.0 : VP / (VP + FP)
-    npv = (VN + FN) == 0 ? 1.0 : VN / (VN + FN)
-    f1 = (ppv + sensitivity) == 0 ? 0.0 :
-        2 * (ppv * sensitivity) / (ppv + sensitivity)
-
-    confusionmatrix = [VN FP;
-                        FN VP]
-
-    return (accuracy = accuracy, errorrate = errorrate, sensitivity = sensitivity, specificity = specificity, 
-    ppv = ppv, npv = npv, f1 = f1, confusionmatrix = confusionmatrix) # devuelve namedtuple para acceder más facilmente
-
+    return (acc, errorRate, recall, specificity, precision, NPV, f1, confusionmatrix)
 end;
 
+
+function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
+    return confusionMatrix(outputs .>= threshold, targets)
+end;
+
+
+function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1}) 
+    println(confusionMatrix(outputs, targets))
+end;
+
+
+function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5) 
+    print(confusionMatrix(outputs, targets, threshold=threshold))
+end
+
+
+function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
+    @assert size(outputs) == size(targets) "outputs y targets deben tener el mismo tamaño"
+
+    numClasses = size(outputs, 2)
+
+    @assert numClasses != 2 "Para problemas binarios usa la versión unidimensional"
+
+    if numClasses == 1  
+        confusionMatrix(outputs, targets)
+    end
+
+    recall = zeros(numClasses)
+    specificity = zeros(numClasses)
+    precision = zeros(numClasses)
+    NPV = zeros(numClasses)
+    f1 = zeros(numClasses)
+
+    for i in 1:numClasses
+        metrics = confusionMatrix(outputs[:, i], targets[:, i])
+        recall[i] = metrics.recall
+        specificity[i] = metrics.specificity
+        precision[i] = metrics.precision
+        NPV[i] = metrics.NPV
+        f1[i] = metrics.f1
+    end
+    confusionmatrix = targets' * outputs
+
+    instances = vec(sum(targets, dims=1))
+    if weighted
+        recall = sum(recall .* instances) / (sum(instances))
+        specificity = sum(specificity .* instances) / (sum(instances))
+        precision = sum(precision .* instances) / (sum(instances))
+        NPV = sum(NPV .* instances) / (sum(instances))
+        f1 = sum(f1 .* instances) / (sum(instances))
+    else    
+        recall = sum(recall) / numClasses
+        specificity = sum(specificity) / numClasses
+        precision = sum(precision) / numClasses
+        NPV = sum(NPV) / numClasses
+        f1 = sum(f1) / numClasses
+    end
+
+    # Calculamos el valor de precisión con la función accuracy desarrollada en una práctica anterior
+    acc = accuracy(outputs, targets)
+    errorRate = 1 - acc
+    
+    return (acc=acc, errorRate=errorRate, recall=recall, specificity=specificity, 
+            precision=precision, NPV=NPV, f1=f1, confusionMatrix=confusionmatrix)
+end
 function confusionMatrix(ouVPuts::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
 
     @assert length(ouVPuts) == length(targets) "Los vectores ouVPuts y targets deben tener la misma longitud"
@@ -145,20 +201,20 @@ function confusionMatrix(ouVPuts::AbstractArray{<:Real,2}, targets::AbstractArra
     return (confusionMatrix(outputs, targets, weighted))
 end;
 
-function confusionMatrix(ouVPuts::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
-    @assert size(ouVPuts) == size(targets) "Ambos vectores deben tener la misma longitud"
-    @assert all([in(label, classes) for label in unique(vcat(targets, ouVPuts))]) "Las etiquetas deben estar incluidas en classes"
-    
-    # codificamos las matrices
-    outputs = oneHotEncoding(ouVPuts, classes)
+function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
+    @assert size(outputs) == size(targets) "outputs y targets deben tener el mismo tamaño"
+
+    @assert all([in(label, classes) for label in unique(vcat(targets, outputs))]) "Las etiquetas deben estar incluidas en classes"
+
+    outputs = oneHotEncoding(outputs, classes)
     targets = oneHotEncoding(targets, classes)
 
-    return (confusionMatrix(outputs, targets, weighted))
+    return confusionMatrix(outputs, targets; weighted=weighted)
 end;
 
-function confusionMatrix(ouVPuts::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    classes = unique(vcat(targets, ouVPuts))
-    return (confusionMatrix(ouVPuts, targets, classes, weighted = weighted))
+function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
+    classes = unique(vcat(targets, outputs))
+    return confusionMatrix(outputs, targets, classes; weighted=weighted)
 end;
 
 function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true) 
@@ -178,9 +234,9 @@ function printConfusionMatrix(outputs::AbstractArray{<:Any,1}, targets::Abstract
 end;
 
 
+
 using SymDoME
 using GeneticProgramming
-
 
 function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}, testInputs::AbstractArray{<:Real,2}, maximumNodes::Int)
     trainingInputs = convert(AbstractArray{Float64, 2}, trainingDataset[1])

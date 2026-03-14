@@ -11,6 +11,8 @@ println(VERSION)
 #  y la 1.12.4 de Random
 println(Random.VERSION)
 #  y las versiones 0.16.7 de Flux, 1.0.4 de SymDoME y 0.22.0 de MLJ
+using Revise
+
 import Pkg
 Pkg.status("Flux")
 Pkg.status("SymDoME")

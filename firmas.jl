@@ -309,142 +309,120 @@ end;
 
 
 function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+    vp = count(outputs .& targets)
+    vn = count(.!outputs .& .!targets)
+    fp = count(outputs .& .!targets)
+    fn = count(.!outputs .& targets)
+    confusionmatrix = [[vn fp]; [fn vp]]
 
-    @assert length(outputs) == length(targets) "Los vectores outputs y targets deben tener la misma longitud"
+    acc = (vn + vp) / (vn + vp + fn + fp)    
+    errorRate = (fn + fp) / (vn + vp + fn + fp)  # Sería equivalente a (1 - acc)
+    recall = (vp + fn) == 0 ? 1.0 : (vp) / (vp + fn)
+    specificity = (vn + fp) == 0 ? 1.0 : (vn) / (vn + fp)
+    precision = (vp + fp) == 0 ? 1.0 : (vp) / (vp + fp)
+    NPV = (vn + fn) == 0 ? 1.0 : (vn) / (vn + fn)
+    f1 = (recall + precision) == 0 ? 0.0 : 2 * (precision * recall) / (precision + recall)
 
-    # calculamos los valores de la matriz de confusión
-    VP = sum(outputs .& targets)
-    VN = sum(.!outputs .& .!targets)
-    FP = sum(outputs .& .!targets)
-    FN = sum(.!outputs .& targets)
-
-    # calculamos las métricas
-    accuracy = (VN + VP) / (VN + VP + FN + FP)
-    errorrate = (FN + FP) / (VN + VP + FN + FP)
-    sensitivity = (VP + FN) == 0 ? 1.0 : VP / (VP + FN)
-    specificity = (VN + FP) == 0 ? 1.0 : VN / (VN + FP)
-    ppv = (VP + FP) == 0 ? 1.0 : VP / (VP + FP)
-    npv = (VN + FN) == 0 ? 1.0 : VN / (VN + FN)
-    f1 = (ppv + sensitivity) == 0 ? 0.0 :
-        2 * (ppv * sensitivity) / (ppv + sensitivity)
-
-    confusionmatrix = [VN FP;
-                        FN VP]
-
-    return (accuracy = accuracy, errorrate = errorrate, sensitivity = sensitivity, specificity = specificity, 
-    ppv = ppv, npv = npv, f1 = f1, confusionmatrix = confusionmatrix) # devuelve namedtuple para acceder más facilmente
-
+    return (acc, errorRate, recall, specificity, precision, NPV, f1, confusionmatrix)
 end;
+
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-
-    @assert length(outputs) == length(targets) "Los vectores outputs y targets deben tener la misma longitud"
-
-    outputs_bool = outputs .>= threshold  # comprueba si cada uno de los valores del output es mayor que el umbral (True)
-    return confusionMatrix(outputs_bool, targets)
-
+    return confusionMatrix(outputs .>= threshold, targets)
 end;
+
 
 function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1}) 
 
     metricas = confusionMatrix(outputs, targets)
 
     println("Métricas:")
-    println("Accuracy: ", metricas.accuracy)
-    println("Error rate: ", metricas.errorrate)
-    println("Sensitivity: ", metricas.sensitivity)
-    println("Specificity: ", metricas.specificity)
-    println("PPV: ", metricas.ppv)
-    println("NPV: ", metricas.npv)
-    println("F1-score: ", metricas.f1)
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
 
     println("\nMatriz de confusión:")
-    println(metricas.confusionmatrix)
+    println(metricas[8])
+
 end;
     
     
 function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
 
-    metricas = confusionMatrix(outputs, targets, threshold = threshold)
+    metricas = confusionMatrix(outputs, targets; threshold = threshold)
 
     println("Métricas:")
-    println("Accuracy: ", metricas.accuracy)
-    println("Error rate: ", metricas.errorrate)
-    println("Sensitivity: ", metricas.sensitivity)
-    println("Specificity: ", metricas.specificity)
-    println("PPV: ", metricas.ppv)
-    println("NPV: ", metricas.npv)
-    println("F1-score: ", metricas.f1)
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
 
     println("\nMatriz de confusión:")
-    println(metricas.confusionmatrix)
+    println(metricas[8])
 
 end;
 
-function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
-    
-    @assert size(outputs,2) == size(targets,2) "El número de columnas de outputs y targets debe ser igual"
-    @assert size(outputs,2) != 2 "Esta función es solo para multiclase (más de 2 clases)"
 
-    if size(outputs,2) == 1
+function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
+    @assert size(outputs) == size(targets) "outputs y targets deben tener el mismo tamaño"
+
+    numClasses = size(outputs, 2)
+
+    @assert numClasses != 2 "Para problemas binarios usa la versión unidimensional"
+
+    if numClasses == 1  
         return confusionMatrix(vec(outputs), vec(targets))
     end
 
-    numclases = size(outputs, 2)
+    recall = zeros(numClasses)
+    specificity = zeros(numClasses)
+    precision = zeros(numClasses)
+    NPV = zeros(numClasses)
+    f1 = zeros(numClasses)
 
-    # reservamos memoria para las métricas (1 posición para cada clase)
-    sensitivity = zeros(numclases)
-    specificity = zeros(numclases)
-    ppv = zeros(numclases)
-    npv = zeros(numclases)
-    f1 = zeros(numclases)
-
-    for c in 1:numclases
-        # cogemos todas las filas de la columna c
-        outputscol = outputs[:, c] 
-        targetscol = targets[:, c]
-        # calculamos las metricas
-        metricas = confusionMatrix(outputscol, targetscol)
-        # guardamos los resultados 
-        sensitivity[c] = metricas.sensitivity
-        specificity[c] = metricas.specificity
-        ppv[c] = metricas.ppv
-        npv[c] = metricas.npv
-        f1[c] = metricas.f1
+    for i in 1:numClasses
+        acc, error, rec, spec, prec, npv, f1score, confmatrix = confusionMatrix(outputs[:, i], targets[:, i])
+        recall[i] = rec
+        specificity[i] = spec
+        precision[i] = prec
+        NPV[i] = npv
+        f1[i] = f1score
     end
+    confusionmatrix = targets' * outputs
 
-    confusionmatrix = targets' * outputs # filas * columnas (N x C)' * (N x C)
-
-    # peso de cada clase = nº de ejemplos de esa clase
-
-    instancias = vec(sum(targets, dims=1)) # sumar por dims=1 suma todas las filas
-
+    instances = vec(sum(targets, dims=1))
     if weighted
-        sensitivity = sum(sensitivity .* instancias) / sum(instancias)
-        specificity = sum(specificity .* instancias) / sum(instancias)
-        ppv = sum(ppv .* instancias) / sum(instancias)
-        npv = sum(npv .* instancias) / sum(instancias)
-        f1 = sum(f1 .* instancias) / sum(instancias)
-    else
-        sensitivity = mean(sensitivity)
-        specificity = mean(specificity)
-        ppv = mean(ppv)
-        npv = mean(npv)
-        f1 = mean(f1)
+        recall = sum(recall .* instances) / (sum(instances))
+        specificity = sum(specificity .* instances) / (sum(instances))
+        precision = sum(precision .* instances) / (sum(instances))
+        NPV = sum(NPV .* instances) / (sum(instances))
+        f1 = sum(f1 .* instances) / (sum(instances))
+    else    
+        recall = sum(recall) / numClasses
+        specificity = sum(specificity) / numClasses
+        precision = sum(precision) / numClasses
+        NPV = sum(NPV) / numClasses
+        f1 = sum(f1) / numClasses
     end
 
-    # calculamos la accuracy con la función de una práctica anterior y la tasa de error
-    accuracy = accuracy(outputs, targets)
-    errorrate = 1 - accuracy
-
-    return (accuracy = accuracy, errorrate = errorrate, sensitivity = sensitivity, specificity = specificity, 
-    ppv = ppv, npv = npv, f1 = f1, confusionmatrix = confusionmatrix)
-+
-end;
+    # Calculamos el valor de precisión con la función accuracy desarrollada en la práctica anterior
+    acc = accuracy(outputs, targets)
+    errorRate = 1 - acc
+    
+    return (acc, errorRate, recall, specificity, 
+            precision, NPV, f1, confusionmatrix)
+end
 
 function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)
-    outputs = classifyOutputs(outputs, threshold=threshold) # convertimos a matriz bool
-    return (confusionMatrix(outputs, targets, weighted))
+    outputs = classifyOutputs(outputs; threshold=threshold) # convertimos a matriz bool
+    return (confusionMatrix(outputs, targets; weighted = weighted))
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
@@ -455,30 +433,77 @@ function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray
     outputs = oneHotEncoding(outputs, classes)
     targets = oneHotEncoding(targets, classes)
 
-    return (confusionMatrix(outputs, targets, weighted))
+    return (confusionMatrix(outputs, targets, weighted = weighted))
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
     classes = unique(vcat(targets, outputs))
-    return (confusionMatrix(outputs, targets, classes, weighted = weighted))
+    return (confusionMatrix(outputs, targets, classes; weighted = weighted))
 end;
 
 function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true) 
-    println(confusionMatrix(outputs, targets; weighted=weighted))
+    metricas = confusionMatrix(outputs, targets; weighted = weighted)
+
+    println("Métricas:")
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
+
+    println("\nMatriz de confusión:")
+    println(metricas[8])
 end;
 
-function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true) 
-    println(confusionMatrix(outputs, targets; weighted=weighted))
+function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true) 
+    metricas = confusionMatrix(outputs, targets; threshold = threshold; weighted = weighted)
+
+    println("Métricas:")
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
+
+    println("\nMatriz de confusión:")
+    println(metricas[8])
 end;
 
 function printConfusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}, classes::AbstractArray{<:Any,1}; weighted::Bool=true)
-    println(confusionMatrix(outputs, targets, classes; weighted=weighted))
+    metricas = confusionMatrix(outputs, targets, classes; weighted = weighted)
+
+    println("Métricas:")
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
+
+    println("\nMatriz de confusión:")
+    println(metricas[8])
 end;
 
 function printConfusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    println(confusionMatrix(outputs, targets; weighted=weighted))
-end;
+    metricas = confusionMatrix(outputs, targets; weighted = weighted)
 
+    println("Métricas:")
+    println("Accuracy: $(metricas[1])")
+    println("Error rate: $(metricas[2])")
+    println("Sensitivity: $(metricas[3])")
+    println("Specificity: $(metricas[4])")
+    println("PPV: $(metricas[5])")
+    println("NPV: $(metricas[6])")
+    println("F1-score: $(metricas[7])")
+
+    println("\nMatriz de confusión:")
+    println(metricas[8])
+end;
 
 using SymDoME
 using GeneticProgramming
@@ -490,7 +515,6 @@ function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, Abstract
     testInputs = convert(AbstractArray{Float64, 2}, testInputs)
 
     model, _, _, _ = dome(trainingInputs, trainingTargets; maximumNodes = maximumNodes) 
-    model = string(model)
 
     testOutputs = evaluateTree(model, testInputs)
     if isa(testOutputs, Real) 
@@ -511,6 +535,9 @@ function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, Abstract
         resultado = trainClassDoME((trainingInputs, trainingTargets), testInputs, maximumNodes)
         return reshape(resultado, :, 1)
     end
+
+    # Bloqueamos el caso de clasificación binaria mal codificada
+    @assert numclases != 2 "Error: Matriz de 2 columnas detectada. Usa un vector para problemas binarios."
 
     # creamos matriz para salidas con tantas filas como instancias y columnas como clases
     numinstancias = size(testInputs, 1)
@@ -550,8 +577,6 @@ function trainClassDoME(trainingDataset::Tuple{AbstractArray{<:Real,2}, Abstract
     return testOutputs
 
 end;
-
-
 
 # ----------------------------------------------------------------------------------------------
 # ------------------------------------- Ejercicio 5 --------------------------------------------
