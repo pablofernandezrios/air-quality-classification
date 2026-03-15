@@ -53,7 +53,108 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     numExecutions::Int=50,
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, validationRatio::Real=0, maxEpochsVal::Int=20)
-    #
-    # Codigo a desarrollar
-    #
+    
+    inputs = dataset[1]
+    targets = dataset[2]
+
+    classes = unique(targets) # calcula el vector de clases
+    targets = oneHotEncoding(targets, classes)
+
+    num_folds = maximum(crossValidationIndices)
+    num_classes = length(classes)
+
+    # creamos un vector para cada métrica
+    accuracy = zeros(num_folds)
+    errorrate = zeros(num_folds)
+    sensitivity = zeros(num_folds)
+    specificity = zeros(num_folds)
+    ppv = zeros(num_folds)
+    npv = zeros(num_folds)
+    f1 = zeros(num_folds)
+
+    confusionmatrix = zeros(Int, num_classes, num_classes)
+
+    for i in 1:num_folds
+
+        # Para cada fold i, los patrones cuyo índice es i son test y el resto train
+        input_train  = inputs[crossValidationIndices .!= i, :]
+        output_train = targets[crossValidationIndices .!= i, :]
+        input_test   = inputs[crossValidationIndices .== i, :]
+        output_test  = targets[crossValidationIndices .== i, :]
+
+        accuracyexec = zeros(numExecutions)
+        errorrateexec = zeros(numExecutions)
+        sensitivityexec = zeros(numExecutions)
+        specificityexec = zeros(numExecutions)
+        ppvexec = zeros(numExecutions)
+        npvexec = zeros(numExecutions)
+        f1exec = zeros(numExecutions)
+        confusionmatrixexec = zeros(Int, num_classes, num_classes, numExecutions)
+
+        for j in 1:numExecutions
+
+            if validationRatio > 0
+            # validationRatio es una fracción del total, pero input_train es más pequeño
+            # porque ya se separaron datos de test. Se escala el ratio para mantener
+            # el mismo número absoluto de patrones de validación que sobre el total.
+            ratio_ajustado = validationRatio * size(inputs, 1) / size(input_train, 1)
+            
+            # holdOut devuelve índices de entrenamiento y validación
+            train_idx, val_idx = holdOut(size(input_train, 1), ratio_ajustado)
+            
+            # Entrenar usando el subconjunto de validación
+            ann, _ = trainClassANN(topology, 
+                (input_train[train_idx, :], output_train[train_idx, :]),
+                validationDataset = (input_train[val_idx, :], output_train[val_idx, :]);
+                transferFunctions, maxEpochs, minLoss, learningRate, maxEpochsVal)
+            else
+            
+            # Sin validación: entrenar directamente con todos los patrones del fold
+                ann, _ = trainClassANN(topology,
+                    (input_train, output_train);
+                    transferFunctions, maxEpochs, minLoss, learningRate)
+            
+            end;
+
+            outputs_test = ann(input_test') # cada valor es la activación de esa neurona de salida para ese patrón
+
+            acc, err, sens, spec, p, n, f, cm = confusionMatrix(outputs_test, output_test)
+    
+            # Guardar cada métrica en la posición j del vector (una por ejecución)
+            accuracyexec[j]    = acc
+            errorrateexec[j]   = err
+            sensitivityexec[j] = sens
+            specificityexec[j] = spec
+            ppvexec[j]         = p
+            npvexec[j]         = n
+            f1exec[j]          = f
+            # Guardar la matriz de confusión en la capa j del array 3D
+            confusionmatrixexec[:, :, j] = cm
+
+        end;
+
+        accuracy[i]    = mean(accuracyexec)
+        errorrate[i]   = mean(errorrateexec)
+        sensitivity[i] = mean(sensitivityexec)
+        specificity[i] = mean(specificityexec)
+        ppv[i]         = mean(ppvexec)
+        npv[i]         = mean(npvexec)
+        f1[i]          = mean(f1exec)
+
+        confusionmatrixmean = mean(confusionmatrixexec, dims = 3)
+        confusionmatrix = confusionmatrix + confusionmatrixmean[:,:,1] # tengo que extraer las dos dimensiones antes de sumar
+
+    end;
+
+return (
+        (mean(accuracy),     std(accuracy)),
+        (mean(errorrate),    std(errorrate)),
+        (mean(sensitivity),  std(sensitivity)),
+        (mean(specificity),  std(specificity)),
+        (mean(ppv),          std(ppv)),
+        (mean(npv),          std(npv)),
+        (mean(f1),           std(f1)),
+        confusionmatrix
+    )
+
 end;
