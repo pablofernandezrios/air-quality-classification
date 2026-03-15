@@ -433,7 +433,7 @@ function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray
     outputs = oneHotEncoding(outputs, classes)
     targets = oneHotEncoding(targets, classes)
 
-    return (confusionMatrix(outputs, targets, weighted = weighted))
+    return (confusionMatrix(outputs, targets; weighted = weighted))
 end;
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
@@ -636,7 +636,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     folds = maximum(crossValidationIndices)
     numClasses = length(classes)
 
-    accuracy    = zeros(folds)
+    accur    = zeros(folds)
     errorRate   = zeros(folds)
     sensitivity = zeros(folds)
     specificity = zeros(folds)
@@ -750,7 +750,134 @@ DTClassifier  = MLJ.@load DecisionTreeClassifier pkg=DecisionTree verbosity=0
 
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}}, crossValidationIndices::Array{Int64,1})
-    
+    if modelType == :ANN
+        @assert haskey(modelHyperparameters, "topology") "Error: si vas a entrenar una RNA, asegúrate de indicar una topología"
+        topology = modelHyperparameters["topology"]
+        numExecutions = get(modelHyperparameters, "numExecutions", 50)
+        transferFunctions = get(modelHyperparameters, "transferFunctions", fill(σ, length(topology)))
+        maxEpochs = get(modelHyperparameters, "maxEpochs", 1000)
+        minLoss = get(modelHyperparameters, "minLoss", 0.0)
+        learningRate = get(modelHyperparameters, "learningRate", 0.01)
+        validationRatio = get(modelHyperparameters, "validationRatio", 0)
+        maxEpochsVal = get(modelHyperparameters, "maxEpochsVal", 20)
+
+        return ANNCrossValidation(topology, dataset, crossValidationIndices; numExecutions, transferFunctions, maxEpochs, minLoss, 
+                    learningRate, validationRatio, maxEpochsVal)
+    end
+
+    inputs = dataset[1]
+    targets = dataset[2]
+
+    targets = string.(targets)
+    classes = unique(targets)
+    numfolds = maximum(crossValidationIndices)
+
+
+    accuracy = zeros(numfolds)
+    errorRate = zeros(numfolds)
+    recall = zeros(numfolds)
+    specificity = zeros(numfolds)
+    precision = zeros(numfolds)
+    npv = zeros(numfolds)
+    f1 = zeros(numfolds)
+    confMatrixGlobal = zeros(Float64, length(classes), length(classes))
+
+    for fold in 1:numfolds
+        trainMask = crossValidationIndices .!= fold
+        testMask  = crossValidationIndices .== fold
+
+        trainInputs  = inputs[trainMask, :]
+        trainTargets = targets[trainMask, :]
+        testInputs   = inputs[testMask, :]
+        testTargets  = targets[testMask, :]
+
+        if modelType == :DoME
+            maximumNodes = modelHyperparameters["maximumNodes"]
+            trainingDataset = (trainInputs, vec(trainTargets))
+            testOutputs = trainClassDoME(trainingDataset, testInputs, maximumNodes)
+        
+        else
+            if modelType == :SVC
+                @assert haskey(modelHyperparameters, "kernel") "Error: Si quieres usar una SVM, debes indicar el kernel a utilizar!"
+                kernel = modelHyperparameters["kernel"]
+
+                C = get(modelHyperparameters, "cost", 1)
+                if kernel == "linear"
+                    model = SVMClassifier( 
+                        kernel = LIBSVM.Kernel.Linear,  
+                        cost = Float64(C))
+                end
+                
+                gamma = get(modelHyperparameters, "gamma", 0.01)
+                if kernel == "rbf"
+                    model = SVMClassifier( 
+                        kernel = LIBSVM.Kernel.RadialBasis,  
+                        cost = Float64(C),
+                        gamma = Float64(gamma))
+                end
+                
+                coef0 = get(modelHyperparameters, "coef0", 1)
+                if kernel == "sigmoid"
+                    model = SVMClassifier( 
+                        kernel = LIBSVM.Kernel.Sigmoid,  
+                        cost = Float64(C),
+                        gamma = Float64(gamma),
+                        coef0 = Float64(coef0))
+                end
+
+                degree = get(modelHyperparameters, "degree", 3)
+                if kernel == "poly"
+                    model = SVMClassifier( 
+                        kernel = LIBSVM.Kernel.Polynomial,  
+                        cost = Float64(C),
+                        gamma = Float64(gamma),
+                        coef0 = Float64(coef0),
+                        degree = Int32(degree))
+                end 
+            end 
+
+            if modelType == :DecisionTreeClassifier
+                @assert haskey(modelHyperparameters, "max_depth") "Error: Debes pasar la profundidad máxima del árbol como parámetro"
+                max_depth = modelHyperparameters["max_depth"]
+                model = DTClassifier(max_depth = max_depth, rng=Random.MersenneTwister(1)) 
+            end
+
+            if modelType == :KNeighborsClassifier
+                @assert haskey(modelHyperparameters, "n_neighbors") "Error: Debes pasar el número de vecinos que tener en cuenta"
+                K = modelHyperparameters["n_neighbors"]
+                model = kNNClassifier(K = K) ; 
+            end
+
+            mach = machine(model, MLJ.table(trainInputs), categorical(trainTargets));
+            MLJ.fit!(mach, verbosity=0)
+            testOutputs = MLJ.predict(mach, MLJ.table(testInputs)); 
+
+            if modelType == :DecisionTreeClassifier || modelType == :KNeighborsClassifier
+                testOutputs = mode.(testOutputs) 
+            end
+        end
+
+        acc, err, rec, spec, prec, npv_, f1_, cm = confusionMatrix(testOutputs, vec(testTargets), classes)
+        accuracy[fold] = acc
+        errorRate[fold]  = err
+        recall[fold] = rec
+        specificity[fold] = spec
+        precision[fold] = prec
+        npv[fold] = npv_
+        f1[fold] = f1_
+
+        confMatrixGlobal .+= cm
+    end 
+
+    return (
+        (mean(accuracy), std(accuracy)),
+        (mean(errorRate), std(errorRate)),
+        (mean(recall), std(recall)),
+        (mean(specificity), std(specificity)),
+        (mean(precision),  std(precision)),
+        (mean(npv), std(npv)),
+        (mean(f1),  std(f1)),
+        confMatrixGlobal
+    )
+
 end;
-
-

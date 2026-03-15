@@ -167,7 +167,7 @@ seed!(1); ((testAccuracy_mean, testAccuracy_std), (testErrorRate_mean, testError
 # ----------------------------------------------------------------------------------------------
 
 
-
+include("firmas.jl");
 
 ((testAccuracy_mean, testAccuracy_std), (testErrorRate_mean, testErrorRate_std), (testRecall_mean, testRecall_std), (testSpecificity_mean, testSpecificity_std), (testPrecision_mean, testPrecision_std), (testNPV_mean, testNPV_std), (testF1_mean, testF1_std), testConfusionMatrix) =
     modelCrossValidation(:DoME, Dict("maximumNodes" => 20), (inputs, targets), repeat(1:10, 15));
