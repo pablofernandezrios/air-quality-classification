@@ -457,8 +457,8 @@ function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractA
     println(metricas[8])
 end;
 
-function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true) 
-    metricas = confusionMatrix(outputs, targets; threshold = threshold; weighted = weighted)
+function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true) 
+    metricas = confusionMatrix(outputs, targets; weighted = weighted)
 
     println("Métricas:")
     println("Accuracy: $(metricas[1])")
@@ -586,27 +586,38 @@ using Random
 using Random:seed!
 
 function crossvalidation(N::Int64, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
+    indices = collect(1:k) # crea identificadores de los folds para asignar cada patrón a un subconjunto
+    num_repeticiones = ceil(Int, N/k) # cuántas veces repetirlos para cubrir N elementos
+    indices_repetidos = repeat(indices, num_repeticiones)
+
+    indices = indices_repetidos[1:N]
+    shuffle!(indices)
+
+    return indices
 end;
 
 function crossvalidation(targets::AbstractArray{Bool,1}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
+    indices = collect(1:length(targets))
+
+    # asigna folds estratificados (positivos y negativos están distribuidos equilibradamente entre los folds)
+    indices[targets .== true]  = crossvalidation(sum(targets .== true), k) 
+    indices[targets .== false] = crossvalidation(sum(targets.== false), k)
+
+    return indices
 end;
 
 function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
+    indices = collect(1:size(targets, 1)) # vector de longitud numero de filas
+    @assert all(sum(targets, dims=1) .>= k) "Error: Al menos una clase tiene menos de 10 instancias, lo cual generará una k-validación sesgada"
+    for c in eachindex(1:size(targets,2))
+       indices[targets[:,c] .== true] = crossvalidation(sum(targets[:,c]), k)
+    end
+
+    return indices
 end;
 
 function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
+    return crossvalidation(oneHotEncoding(targets), k)
 end;
 
 function ANNCrossValidation(topology::AbstractArray{<:Int,1},
@@ -614,11 +625,115 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     crossValidationIndices::Array{Int64,1};
     numExecutions::Int=50,
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, validationRatio::Real=0, maxEpochsVal::Int=20)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+    validationRatio::Real=0, maxEpochsVal::Int=20)
+
+    inputs = dataset[1]
+    targetsCat = dataset[2]
+    classes = unique(targetsCat)
+    targets = oneHotEncoding(targetsCat, classes)
+
+    folds = maximum(crossValidationIndices)
+    numClasses = length(classes)
+
+    accuracy    = zeros(folds)
+    errorRate   = zeros(folds)
+    sensitivity = zeros(folds)
+    specificity = zeros(folds)
+    ppv         = zeros(folds)
+    npv         = zeros(folds)
+    f1          = zeros(folds)
+    confMatrixGlobal = zeros(Float64, numClasses, numClasses)
+
+    for fold in 1:folds
+        trainMask = crossValidationIndices .!= fold
+        testMask  = crossValidationIndices .== fold
+
+        inputsTrain  = inputs[trainMask, :]
+        targetsTrain = targets[trainMask, :]
+        inputsTest   = inputs[testMask, :]
+        targetsTest  = targets[testMask, :]
+
+        accExec  = zeros(numExecutions)
+        errExec  = zeros(numExecutions)
+        sensExec = zeros(numExecutions)
+        specExec = zeros(numExecutions)
+        ppvExec  = zeros(numExecutions)
+        npvExec  = zeros(numExecutions)
+        f1Exec   = zeros(numExecutions)
+        confMatrices = zeros(Float64, numClasses, numClasses, numExecutions)
+
+        for exec in 1:numExecutions
+            if validationRatio > 0
+                # El ratio se ajusta porque el conjunto de entrenamiento ya
+                # es menor al haber separado el fold de test
+                ratioVal = validationRatio / (1.0 - 1.0/folds)
+                trainIdx, valIdx = holdOut(size(inputsTrain, 1), ratioVal)
+
+                inputsTrainExec  = inputsTrain[trainIdx, :]
+                targetsTrainExec = targetsTrain[trainIdx, :]
+                inputsVal        = inputsTrain[valIdx, :]
+                targetsVal       = targetsTrain[valIdx, :]
+
+                ann, _ = trainClassANN(
+                    topology,
+                    (inputsTrainExec, targetsTrainExec);
+                    transferFunctions = transferFunctions,
+                    maxEpochs        = maxEpochs,
+                    minLoss          = minLoss,
+                    learningRate     = learningRate,
+                    validationDataset = (inputsVal, targetsVal),
+                    maxEpochsVal     = maxEpochsVal
+                )
+            else
+                ann, _ = trainClassANN(
+                    topology,
+                    (inputsTrain, targetsTrain);
+                    transferFunctions = transferFunctions,
+                    maxEpochs        = maxEpochs,
+                    minLoss          = minLoss,
+                    learningRate     = learningRate,
+                    maxEpochsVal     = maxEpochsVal
+                )
+            end
+
+            outputs = ann(inputsTest')  # columnas = patrones
+            acc, err, sens, spec, vpp_, vpn_, f1_, cm =
+                confusionMatrix(outputs', targetsTest)
+
+            accExec[exec]  = acc
+            errExec[exec]  = err
+            sensExec[exec] = sens
+            specExec[exec] = spec
+            ppvExec[exec]  = vpp_
+            npvExec[exec]  = vpn_
+            f1Exec[exec]   = f1_
+            confMatrices[:, :, exec] = cm
+        end
+
+        accuracy[fold]    = mean(accExec)
+        errorRate[fold]   = mean(errExec)
+        sensitivity[fold] = mean(sensExec)
+        specificity[fold] = mean(specExec)
+        ppv[fold]         = mean(ppvExec)
+        npv[fold]         = mean(npvExec)
+        f1[fold]          = mean(f1Exec)
+
+        meanConf = mean(confMatrices, dims=3)
+        confMatrixGlobal .+= meanConf[:, :, 1]
+    end
+
+    return (
+        (mean(accuracy),    std(accuracy)),
+        (mean(errorRate),   std(errorRate)),
+        (mean(sensitivity), std(sensitivity)),
+        (mean(specificity), std(specificity)),
+        (mean(ppv),         std(ppv)),
+        (mean(npv),         std(npv)),
+        (mean(f1),          std(f1)),
+        confMatrixGlobal
+    )
+end
 
 
 # ----------------------------------------------------------------------------------------------
@@ -635,9 +750,7 @@ DTClassifier  = MLJ.@load DecisionTreeClassifier pkg=DecisionTree verbosity=0
 
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}}, crossValidationIndices::Array{Int64,1})
-    #
-    # Codigo a desarrollar
-    #
+    
 end;
 
 
