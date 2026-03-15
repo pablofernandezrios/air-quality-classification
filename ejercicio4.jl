@@ -22,10 +22,8 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     NPV = (vn + fn) == 0 ? 1.0 : (vn) / (vn + fn)
     f1 = (recall + precision) == 0 ? 0.0 : 2 * (precision * recall) / (precision + recall)
 
-    return (acc=acc, errorRate=errorRate, recall=recall, specificity=specificity, 
-            precision=precision, NPV=NPV, f1=f1, confusionMatrix=confusionmatrix)
-end;
-
+    return (acc, errorRate, recall, specificity, precision, NPV, f1, confusionmatrix)
+end
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
     outputs = outputs .>= threshold
@@ -51,6 +49,8 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
     @assert numClasses != 2 "Para problemas binarios usa la versión unidimensional"
 
     if numClasses == 1  
+        outputs = vec(outputs)
+        targets = vec(targets)
         confusionMatrix(outputs, targets)
     end
 
@@ -89,8 +89,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
     acc = accuracy(outputs, targets)
     errorRate = 1 - acc
     
-    return (acc=acc, errorRate=errorRate, recall=recall, specificity=specificity, 
-            precision=precision, NPV=NPV, f1=f1, confusionMatrix=confusionmatrix)
+    return (acc, errorRate, recall, specificity, precision, NPV, f1, confusionmatrix)
 end
 
 function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5, weighted::Bool=true)
