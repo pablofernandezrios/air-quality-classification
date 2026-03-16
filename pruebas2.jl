@@ -241,3 +241,5 @@ seed!(1); ((testAccuracy_mean, testAccuracy_std), (testErrorRate_mean, testError
 @assert(isapprox(testF1_mean,          0.18758329332632737) && isapprox(testF1_std,          0.01437405343817687))
 @assert(all(isapprox(testConfusionMatrix, [18.2 14.94 16.86; 15.92 17.1 16.98; 15.82 17.28 16.9])))
 
+
+

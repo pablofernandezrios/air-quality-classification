@@ -636,7 +636,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     folds = maximum(crossValidationIndices)
     numClasses = length(classes)
 
-    accur    = zeros(folds)
+    accur  = zeros(folds)
     errorRate   = zeros(folds)
     sensitivity = zeros(folds)
     specificity = zeros(folds)
@@ -711,7 +711,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             confMatrices[:, :, exec] = cm
         end
 
-        accuracy[fold]    = mean(accExec)
+        accur[fold]    = mean(accExec)
         errorRate[fold]   = mean(errExec)
         sensitivity[fold] = mean(sensExec)
         specificity[fold] = mean(specExec)
@@ -724,7 +724,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     end
 
     return (
-        (mean(accuracy),    std(accuracy)),
+        (mean(accur),    std(accur)),
         (mean(errorRate),   std(errorRate)),
         (mean(sensitivity), std(sensitivity)),
         (mean(specificity), std(specificity)),
@@ -773,7 +773,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
     numfolds = maximum(crossValidationIndices)
 
 
-    accuracy = zeros(numfolds)
+    accur = zeros(numfolds)
     errorRate = zeros(numfolds)
     recall = zeros(numfolds)
     specificity = zeros(numfolds)
@@ -848,7 +848,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
                 model = kNNClassifier(K = K) ; 
             end
 
-            mach = machine(model, MLJ.table(trainInputs), categorical(trainTargets));
+            mach = machine(model, MLJ.table(trainInputs), categorical(vec(trainTargets)));
             MLJ.fit!(mach, verbosity=0)
             testOutputs = MLJ.predict(mach, MLJ.table(testInputs)); 
 
@@ -858,7 +858,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
         end
 
         acc, err, rec, spec, prec, npv_, f1_, cm = confusionMatrix(testOutputs, vec(testTargets), classes)
-        accuracy[fold] = acc
+        accur[fold] = acc
         errorRate[fold]  = err
         recall[fold] = rec
         specificity[fold] = spec
@@ -870,7 +870,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, dat
     end 
 
     return (
-        (mean(accuracy), std(accuracy)),
+        (mean(accur), std(accur)),
         (mean(errorRate), std(errorRate)),
         (mean(recall), std(recall)),
         (mean(specificity), std(specificity)),
