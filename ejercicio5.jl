@@ -76,11 +76,14 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
 
     for i in 1:num_folds
 
+        # trainMask = crossValidationIndices .!= fold
+        # testMask  = crossValidationIndices .== fold
+
         # Para cada fold i, los patrones cuyo índice es i son test y el resto train
         input_train  = inputs[crossValidationIndices .!= i, :]
-        output_train = targets[crossValidationIndices .!= i, :]
+        target_train = targets[crossValidationIndices .!= i, :]
         input_test   = inputs[crossValidationIndices .== i, :]
-        output_test  = targets[crossValidationIndices .== i, :]
+        target_test  = targets[crossValidationIndices .== i, :]
 
         accuracyexec = zeros(numExecutions)
         errorrateexec = zeros(numExecutions)
@@ -104,21 +107,21 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             
             # Entrenar usando el subconjunto de validación
             ann, _ = trainClassANN(topology, 
-                (input_train[train_idx, :], output_train[train_idx, :]),
-                validationDataset = (input_train[val_idx, :], output_train[val_idx, :]);
+                (input_train[train_idx, :], target_train[train_idx, :]),
+                validationDataset = (input_train[val_idx, :], target_train[val_idx, :]);
                 transferFunctions, maxEpochs, minLoss, learningRate, maxEpochsVal)
             else
             
             # Sin validación: entrenar directamente con todos los patrones del fold
                 ann, _ = trainClassANN(topology,
-                    (input_train, output_train);
+                    (input_train, target_train);
                     transferFunctions, maxEpochs, minLoss, learningRate)
             
             end;
 
             outputs_test = ann(input_test') # cada valor es la activación de esa neurona de salida para ese patrón
 
-            acc, err, sens, spec, p, n, f, cm = confusionMatrix(outputs_test, output_test)
+            acc, err, sens, spec, p, n, f, cm = confusionMatrix(outputs_test, target_test)
     
             # Guardar cada métrica en la posición j del vector (una por ejecución)
             accuracyexec[j]    = acc
