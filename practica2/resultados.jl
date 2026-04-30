@@ -2,7 +2,7 @@ using DelimitedFiles
 using Statistics
 
 # Cargamos las funciones realizadas en la práctica 1
-include("firmas.jl")
+include("firmas2.jl")
 
 # Cargamos el dataset
 dataset = readdlm("pollution.csv",',')
@@ -84,26 +84,36 @@ function printModelResults(name::String, metrics, classes)
     end
 end
 
-# Red de Neuronas Artificial
-topology = [10, 5]
-metricsANN = ANNCrossValidation(topology, dataset, crossValidationIndices)
-printModelResults("ANN", metricsANN, classes)
-
 # SVM
 modelHyperparameters = Dict("kernel" => "linear",
                             "C"      => 1.0,
                             "gamma"  => -1.0,
                             "degree" => -1,
                             "coef0"  => -1.0)
-metricsSVM = modelCrossValidation(:SVC, modelHyperparameters, dataset, crossValidationIndices)
+println("\nEntrenando SVM...")
+metricsSVM = @time modelCrossValidation(:SVC, modelHyperparameters, dataset, crossValidationIndices)
 printModelResults("SVM", metricsSVM, classes)
 
 # KNN
 modelHyperparameters = Dict("n_neighbors" => 5)
-metricsKNN = modelCrossValidation(:KNeighborsClassifier, modelHyperparameters, dataset, crossValidationIndices)
+println("\nEntrenando KNN...")
+metricsKNN = @time modelCrossValidation(:KNeighborsClassifier, modelHyperparameters, dataset, crossValidationIndices)
 printModelResults("KNN", metricsKNN, classes)
 
 # Árbol de decisión
 modelHyperparameters = Dict("max_depth" => 10)
-metricsDT = modelCrossValidation(:DecisionTreeClassifier, modelHyperparameters, dataset, crossValidationIndices)
+println("\nEntrenando Decision Tree...")
+metricsDT = @time modelCrossValidation(:DecisionTreeClassifier, modelHyperparameters, dataset, crossValidationIndices)
 printModelResults("Decision Tree", metricsDT, classes)
+
+# DoME
+modelHyperparameters = Dict("maximumNodes" )
+println("\nEntrenando DoME...")
+metricsDoME = @time modelCrossValidation(:DoME, modelHyperparameters, dataset, crossValidationIndices)
+printModelResults("ANN", metricsANN, classes)
+
+# Red de Neuronas Artificial
+topology = [10, 5]
+println("\nEntrenando ANN...")
+metricsANN = @time ANNCrossValidation(topology, dataset, crossValidationIndices; numExecutions=5)
+printModelResults("ANN", metricsANN, classes)
