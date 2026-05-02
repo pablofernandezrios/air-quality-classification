@@ -6,20 +6,27 @@
 using Statistics
 using Flux
 using Flux.Losses
-using CUDA
 
 # ------------------------------------------------------------------------
-# GPU: helper para mover datos/modelo a GPU si está disponible, o dejarlos
-# en CPU si no. Usamos cu() directo de CUDA.jl en lugar de gpu() de Flux,
-# para no depender de cuDNN ni de MLDataDevices (no hace falta convolución).
+# GPU: Helper seguro para mover datos/modelo a GPU si está disponible.
+# Usamos un try-catch con @eval para que el código no explote si el
+# evaluador (profesor) no tiene el paquete CUDA instalado.
 # ------------------------------------------------------------------------
-const USE_GPU = CUDA.functional()
+global USE_GPU = false
+try
+    @eval using CUDA
+    global USE_GPU = CUDA.functional()
+catch
+    # Si da error, es que el paquete CUDA no está instalado. Asumimos CPU.
+    global USE_GPU = false
+end
+
 to_device(x) = USE_GPU ? cu(x) : x
 
 if USE_GPU
     @info "CUDA disponible: el entrenamiento de ANN se ejecutará en GPU."
 else
-    @info "CUDA no disponible: el entrenamiento de ANN se ejecutará en CPU."
+    @info "CUDA no disponible o no instalado: el entrenamiento se ejecutará en CPU."
 end
 
 
