@@ -165,6 +165,26 @@ function bestByF1(results)
     return bestIdx, results[bestIdx]
 end
 
+# Reutiliza confusionMatrix(...; weighted=false) de firmas2.jl para obtener métricas macro
+# desde la matriz de confusión agregada que devuelven las funciones *CrossValidation.
+function macroMetrics(aggregatedConfMatrix::AbstractMatrix)
+    counts = round.(Int, aggregatedConfMatrix)
+    total = sum(counts)
+    n = size(counts, 1)
+    targets = falses(total, n)
+    outputs = falses(total, n)
+    idx = 1
+    for i in 1:n, j in 1:n
+        c = counts[i, j]
+        if c > 0
+            targets[idx:idx+c-1, i] .= true
+            outputs[idx:idx+c-1, j] .= true
+            idx += c
+        end
+    end
+    return confusionMatrix(outputs, targets; weighted=false)
+end
+
 # ----------------------------------------------------------------------------------------------
 # Impresión de resultados (con todas las métricas)
 # ----------------------------------------------------------------------------------------------
@@ -183,8 +203,9 @@ function printModelResults(name::String, hp::Dict, metrics, classes)
     println("  Recall     : $(round(recall[1],  digits=4)) ± $(round(recall[2],  digits=4))")
     println("  Specificity: $(round(spec[1],    digits=4)) ± $(round(spec[2],    digits=4))")
     println("  Precision  : $(round(prec[1],    digits=4)) ± $(round(prec[2],    digits=4))")
-    println("  NPV        : $(round(npv[1],     digits=4)) ± $(round(npv[2],     digits=4))")
-    println("  F1-score   : $(round(f1[1],      digits=4)) ± $(round(f1[2],      digits=4))")
+    println("  NPV          : $(round(npv[1],     digits=4)) ± $(round(npv[2],     digits=4))")
+    println("  F1 ponderado : $(round(f1[1],      digits=4)) ± $(round(f1[2],      digits=4))")
+    println("  F1 macro     : $(round(macroMetrics(confMatrix)[7], digits=4))   (sin std; sobre matriz agregada)")
     println("\nMétricas por clase:")
     for (i, class) in enumerate(classes)
         TP = confMatrix[i, i]
@@ -221,27 +242,29 @@ function hpSummary(hp::Dict)::String
 end
 
 function printAllResults(name::String, results)
-    println("\n", "="^90)
-    println(" Todas las configuraciones de $name (ordenadas por F1 desc)")
-    println("="^90)
+    println("\n", "="^100)
+    println(" Todas las configuraciones de $name (ordenadas por F1 ponderado desc)")
+    println("="^100)
     col1 = 52
     header = rpad("Hiperparámetros", col1) * " │ " *
-             lpad("Acc",   6) * "  " * lpad("F1",    6) * "  " *
+             lpad("Acc",   6) * "  " * lpad("F1pond", 7) * "  " * lpad("F1mac", 6) * "  " *
              lpad("Prec",  6) * "  " * lpad("Recall", 6) * "  " * lpad("std F1", 6)
     println(header)
-    println("-"^90)
+    println("-"^100)
     sorted = sort(results, by = r -> -r[2][7][1])
     for (hp, metrics) in sorted
-        (acc, _, recall, _, prec, _, f1, _) = metrics
+        (acc, _, recall, _, prec, _, f1, confMatrix) = metrics
+        f1m = macroMetrics(confMatrix)[7]
         row = rpad(hpSummary(hp), col1) * " │ " *
               lpad(round(acc[1],    digits=4), 6) * "  " *
-              lpad(round(f1[1],     digits=4), 6) * "  " *
+              lpad(round(f1[1],     digits=4), 7) * "  " *
+              lpad(round(f1m,       digits=4), 6) * "  " *
               lpad(round(prec[1],   digits=4), 6) * "  " *
               lpad(round(recall[1], digits=4), 6) * "  " *
               lpad(round(f1[2],     digits=4), 6)
         println(row)
     end
-    println("-"^90)
+    println("-"^100)
 end
 
 # Tras cada modelo, imprimimos sus resultados al instante para que estén
@@ -307,11 +330,12 @@ println("\nTiempo total del grid search: $(round(t_dt + t_knn + t_svm + t_dome +
 println("\n", "#"^60)
 println("# RESUMEN COMPARATIVO (mejor configuración de cada modelo)")
 println("#"^60)
-println("\nModelo          | F1-score (media ± std)")
-println("-"^50)
+println("\nModelo          | F1 ponderado (media ± std)  | F1 macro")
+println("-"^65)
 for (name, best) in [("ANN", bestANN), ("SVM", bestSVM), ("DoME", bestDoME), ("KNN", bestKNN), ("Decision Tree", bestDT)]
-    f1 = best[2][7]
-    println(rpad(name, 16), "| $(round(f1[1], digits=4)) ± $(round(f1[2], digits=4))")
+    f1  = best[2][7]
+    f1m = macroMetrics(best[2][8])[7]
+    println(rpad(name, 16), "| $(round(f1[1], digits=4)) ± $(round(f1[2], digits=4))         | $(round(f1m, digits=4))")
 end
 
 ranking = [("ANN", bestANN), ("SVM", bestSVM), ("DoME", bestDoME), ("KNN", bestKNN), ("Decision Tree", bestDT)]
