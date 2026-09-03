@@ -137,7 +137,8 @@ end
 # ==============================================================================
 # ENTRENAMIENTO Y EVALUACIÓN (Mejores configuraciones)
 # ==============================================================================
-# Nota: Si el Grid Search encuentra otros parámetros mejores, cámbialos aquí.
+# Los hiperparámetros de abajo son los ganadores de grid_search.jl: cada uno es
+# la primera fila (mayor F1) del CSV correspondiente en results/.
 
 # 1. Árbol de decisión
 modelHyperparameters_DT = Dict("max_depth" => 10)
@@ -146,7 +147,7 @@ metricsDT = @time modelCrossValidation(:DecisionTreeClassifier, modelHyperparame
 printModelResults("Decision Tree", metricsDT, classes)
 
 # 2. KNN
-modelHyperparameters_KNN = Dict("n_neighbors" => 5)
+modelHyperparameters_KNN = Dict("n_neighbors" => 15)
 println("\n[2/5] Entrenando KNN...")
 metricsKNN = @time modelCrossValidation(:KNeighborsClassifier, modelHyperparameters_KNN, dataset_tup, crossValidationIndices)
 printModelResults("K-Nearest Neighbors", metricsKNN, classes)
@@ -155,7 +156,7 @@ printModelResults("K-Nearest Neighbors", metricsKNN, classes)
 modelHyperparameters_SVM = Dict(
     "kernel" => "rbf", 
     "C"      => 10.0,
-    "gamma"  => 0.1, 
+    "gamma"  => 1.0,
     "degree" => -1, 
     "coef0"  => -1.0
 )
@@ -170,7 +171,7 @@ metricsDoME = @time modelCrossValidation(:DoME, modelHyperparameters_DoME, datas
 printModelResults("DoME", metricsDoME, classes)
 
 # 5. Red de Neuronas Artificial (ANN)
-topology = [20, 10]
+topology = [50, 25]
 println("\n[5/5] Entrenando ANN (GPU activada si disponible)...")
 metricsANN = @time ANNCrossValidation(topology, dataset_tup, crossValidationIndices; numExecutions=5)
 printModelResults("Artificial Neural Network (ANN)", metricsANN, classes)
