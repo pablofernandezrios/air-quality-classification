@@ -12,15 +12,20 @@ using Statistics
 using Printf
 using Random
 
+# Rutas del proyecto (independientes del directorio desde el que se lance Julia)
+const SRC_DIR  = @__DIR__
+const ROOT_DIR = normpath(joinpath(SRC_DIR, ".."))
+const DATA_DIR = joinpath(ROOT_DIR, "data")
+
 # Cargamos las funciones realizadas en la práctica 1 y soporte MLJ
-include("firmas2.jl")
+include(joinpath(SRC_DIR, "firmas2.jl"))
 
 println("\n" * "*"^60)
 println("* EVALUACIÓN FINAL DE MODELOS DE CALIDAD DEL AIRE")
 println("*"^60)
 
 # Cargamos el dataset
-dataset = readdlm("pollution.csv", ',')
+dataset = readdlm(joinpath(DATA_DIR, "pollution.csv"), ',')
 
 # Eliminar outliers físicamente imposibles por columna
 # Columnas: Temp, Hum, PM2.5, PM10, NO2, SO2, CO, Prox_Ind, Pop_Den
@@ -92,14 +97,15 @@ newInputs = normalizeMinMax!(inputs, normalizationParameters)
 # Reproducibilidad
 Random.seed!(67) # Fijamos la semilla para la inicialización estocástica (ANN, etc.)
 
-const NUM_FOLDS = 5
-if isfile("indices.csv")
-    println("\n[Reproducibilidad] Cargando índices de validación cruzada desde 'indices.csv'...")
-    crossValidationIndices = Int.(vec(readdlm("indices.csv", ',')))
+const NUM_FOLDS   = 5
+const INDICES_CSV = joinpath(DATA_DIR, "indices.csv")
+if isfile(INDICES_CSV)
+    println("\n[Reproducibilidad] Cargando índices de validación cruzada desde 'data/indices.csv'...")
+    crossValidationIndices = Int.(vec(readdlm(INDICES_CSV, ',')))
 else
-    println("\n[Reproducibilidad] Generando índices estratificados y guardándolos en 'indices.csv'...")
+    println("\n[Reproducibilidad] Generando índices estratificados y guardándolos en 'data/indices.csv'...")
     crossValidationIndices = crossvalidation(targets, NUM_FOLDS)
-    writedlm("indices.csv", crossValidationIndices, ',')
+    writedlm(INDICES_CSV, crossValidationIndices, ',')
 end
 
 # Dataset preparado para MLJ y funciones personalizadas
@@ -148,7 +154,7 @@ printModelResults("K-Nearest Neighbors", metricsKNN, classes)
 # 3. SVM 
 modelHyperparameters_SVM = Dict(
     "kernel" => "rbf", 
-    "C"      => 10.0, 
+    "C"      => 10.0,
     "gamma"  => 0.1, 
     "degree" => -1, 
     "coef0"  => -1.0

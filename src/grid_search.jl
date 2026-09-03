@@ -35,18 +35,27 @@ println("Threads Julia   : ", Threads.nthreads(),
         " (para ANN en GPU; lanza con --threads N para aumentar)")
 
 # ------------------------------------------------------------------------------
+# Rutas del proyecto (independientes del directorio desde el que se lance Julia)
+# ------------------------------------------------------------------------------
+const SRC_DIR     = @__DIR__
+const ROOT_DIR    = normpath(joinpath(SRC_DIR, ".."))
+const DATA_DIR    = joinpath(ROOT_DIR, "data")
+const RESULTS_DIR = joinpath(ROOT_DIR, "results")
+mkpath(RESULTS_DIR)
+
+# ------------------------------------------------------------------------------
 # Carga de paquetes y funciones en TODOS los workers
 # ------------------------------------------------------------------------------
 @everywhere using DelimitedFiles
 @everywhere using Statistics
 @everywhere using MLJ
 @everywhere using LIBSVM, MLJLIBSVMInterface
-@everywhere include("firmas2.jl")
+@everywhere include(joinpath($SRC_DIR, "firmas2.jl"))
 
 # ------------------------------------------------------------------------------
 # Carga del dataset y preprocesado (sólo en el driver)
 # ------------------------------------------------------------------------------
-dataset_raw = readdlm("pollution.csv", ',')
+dataset_raw = readdlm(joinpath(DATA_DIR, "pollution.csv"), ',')
 
 inputs = Float32.(dataset_raw[2:end, 1:9])
 limits = [
@@ -83,14 +92,15 @@ newInputs = normalizeMinMax!(inputs, normalizationParameters)
 using Random
 Random.seed!(67) # FIJAMOS LA MISMA SEMILLA QUE EN RESULTADOS.JL
 
-const NUM_FOLDS = 5
-if isfile("indices.csv")
-    println("\n[Reproducibilidad] Cargando índices de validación cruzada desde 'indices.csv'...")
-    crossValidationIndices = Int.(vec(readdlm("indices.csv", ',')))
+const NUM_FOLDS   = 5
+const INDICES_CSV = joinpath(DATA_DIR, "indices.csv")
+if isfile(INDICES_CSV)
+    println("\n[Reproducibilidad] Cargando índices de validación cruzada desde 'data/indices.csv'...")
+    crossValidationIndices = Int.(vec(readdlm(INDICES_CSV, ',')))
 else
-    println("\n[Reproducibilidad] Generando índices estratificados y guardándolos en 'indices.csv'...")
+    println("\n[Reproducibilidad] Generando índices estratificados y guardándolos en 'data/indices.csv'...")
     crossValidationIndices = crossvalidation(targets, NUM_FOLDS)
-    writedlm("indices.csv", crossValidationIndices, ',')
+    writedlm(INDICES_CSV, crossValidationIndices, ',')
 end
 
 dataset_tuple = (newInputs, targetsRaw)
@@ -330,7 +340,7 @@ function exportModelCSV(name::String, results)
         Precision_Mean  = [round(r[2][5][1], digits=5) for r in results],
     )
     sort!(df, :F1_Score_Mean; rev=true)
-    filename = "grid_resultados_$(replace(name, " " => "_")).csv"
+    filename = joinpath(RESULTS_DIR, "grid_resultados_$(replace(name, " " => "_")).csv")
     CSV.write(filename, df)
     println("  → CSV exportado: $filename")
     return filename
@@ -444,7 +454,7 @@ function exportFoldF1s(modelName::String, f1s::Vector{Float64})
         Fold     = 1:length(f1s),
         F1_Score = round.(f1s; digits=6),
     )
-    filename = "folds_$(modelName).csv"
+    filename = joinpath(DATA_DIR, "folds_$(modelName).csv")
     CSV.write(filename, df)
     println("  → Folds exportados: $filename",
             "  (μ=$(round(mean(f1s),digits=4)),  σ=$(round(std(f1s),digits=4)))")
@@ -541,10 +551,10 @@ total_time = t_dt + t_knn + t_svm + t_dome + t_ann
 println("\nTiempo total del grid search: $(round(total_time, digits=1)) s")
 
 println("\n✓ Archivos generados:")
-println("  grid_resultados_Decision_Tree.csv")
-println("  grid_resultados_KNN.csv")
-println("  grid_resultados_SVM.csv")
-println("  grid_resultados_DoME.csv")
-println("  grid_resultados_ANN.csv")
-println("  folds_SVM.csv  ← F1 por fold para test de Wilcoxon")
-println("  folds_ANN.csv  ← F1 por fold para test de Wilcoxon")
+println("  results/grid_resultados_Decision_Tree.csv")
+println("  results/grid_resultados_KNN.csv")
+println("  results/grid_resultados_SVM.csv")
+println("  results/grid_resultados_DoME.csv")
+println("  results/grid_resultados_ANN.csv")
+println("  data/folds_SVM.csv  ← F1 por fold para test de Wilcoxon")
+println("  data/folds_ANN.csv  ← F1 por fold para test de Wilcoxon")
