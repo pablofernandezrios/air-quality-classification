@@ -100,6 +100,13 @@ sobre los 5 folds). Los CSV completos con todas las configuraciones están en
 | k-NN | `k=15` | 0,9278 ± 0,0110 | 0,9303 |
 | Árbol de decisión | `max_depth=10` | 0,9263 ± 0,0105 | 0,9269 |
 
+> Los valores de la tabla proceden de los CSV de `results/`. Al reejecutar
+> `src/resultados.jl` se reproducen exactamente para SVM, DoME, k-NN y árbol de
+> decisión, que son deterministas dada la partición de `data/indices.csv`. La
+> ANN es estocástica: pese a la semilla fija, el promedio de sus 5 ejecuciones
+> por fold varía en el cuarto decimal (0,9434 ± 0,0081 en una reejecución), muy
+> por debajo de su desviación típica entre folds.
+
 **Conclusiones:**
 
 - Los cinco modelos superan un **F1 ponderado de 0,92**, lo que indica que el
